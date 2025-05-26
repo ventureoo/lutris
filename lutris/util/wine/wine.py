@@ -96,6 +96,20 @@ def is_gstreamer_build(wine_path: str) -> bool:
     return system.path_exists(os.path.join(base_path, "lib64/gstreamer-1.0"))
 
 
+def is_wow64_build(runner_version: str) -> bool:
+    """Check if Wine version is WoW64 build"""
+    files_dir = get_runner_files_dir_for_version(runner_version)
+    if files_dir:
+        unix_paths = (
+            "lib64/wine/i386-unix",
+            "lib/wine/i386-unix",
+        )
+        if not any(os.path.exists(os.path.join(files_dir, unix_path)) for unix_path in unix_paths):
+            return True
+
+    return False
+
+
 def is_installed_systemwide() -> bool:
     """Return whether Wine is installed outside of Lutris"""
     for build in WINE_PATHS.values():

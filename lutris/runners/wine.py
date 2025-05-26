@@ -64,6 +64,7 @@ from lutris.util.wine.wine import (
     is_esync_limit_set,
     is_fsync_supported,
     is_gstreamer_build,
+    is_wow64_build,
 )
 
 
@@ -93,6 +94,20 @@ def _get_prefix_warning(_option_key: str, config: LutrisConfig) -> Optional[str]
     return _("<b>Warning</b> Some Wine configuration options cannot be applied, if no prefix can be found.")
 
 
+def _is_vulkan_supported(option_key: str, config: LutrisConfig):
+    runner_config = config.runner_config
+    runner_version = runner_config.get("version")
+
+    if runner_version:
+        return (
+            is_wow64_build(runner_version)
+            and vkquery.is_vulkan_supported()
+            and LINUX_SYSTEM.get_missing_lib_arch("VULKAN") == ["i386"]
+        )
+
+    return LINUX_SYSTEM.is_vulkan_supported()
+
+
 def _get_dxvk_warning() -> Optional[str]:
     if drivers.is_outdated():
         driver_info = drivers.get_nvidia_driver_info()
@@ -108,6 +123,17 @@ def _get_dxvk_warning() -> Optional[str]:
 def _get_simple_vulkan_support_error(option_key: str, config: LutrisConfig, feature: str) -> Optional[str]:
     if os.environ.get("LUTRIS_NO_VKQUERY"):
         return None
+
+    version = config.runner_config.get("version")
+
+    if (
+        version
+        and is_wow64_build(version)
+        and vkquery.is_vulkan_supported()
+        and LINUX_SYSTEM.get_missing_lib_arch("VULKAN") == ["i386"]
+    ):
+        return None
+
     if config.runner_config.get(option_key) and not LINUX_SYSTEM.is_vulkan_supported():
         return (
             _("<b>Error</b> Vulkan is not installed or is not supported by your system, " "%s is not available.")
@@ -311,7 +337,7 @@ class wine(Runner):
             "advanced": True,
             "type": "choice_with_entry",
             "visible": _is_pre_proton,
-            "condition": LINUX_SYSTEM.is_vulkan_supported(),
+            "condition": _is_vulkan_supported,
             "conditional_on": "dxvk",
             "choices": lambda: DXVKManager().version_choices,
             "default": lambda: DXVKManager().version,
